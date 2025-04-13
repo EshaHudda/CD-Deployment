@@ -1,0 +1,71 @@
+name: Docker CI/CD to Staging
+
+on:
+  push:
+    branches: [ "staging" ] # Trigger on pushes to the 'staging' branch
+  pull_request:
+    branches: [ "staging" ] # Trigger on pull requests targeting the 'staging' branch
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build-and-test:
+    name: Build and Test Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      - name: Login to Docker Registry
+        uses: docker/login-action@v2
+        with:
+          registry: $ {{ secrets.DOCKER_REGISTRY }}
+          username: $ {{ secrets.DOCKER_USERNAME }}
+          password: $ {{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: $ {{ secrets.DOCKER_REGISTRY }}/${{ github.repository }}:${{ github.sha }}
+          labels: |
+            org.label-schema.vcs-ref=${{ github.sha }}
+            org.label-schema.vcs-url=${{ github.server_url }}/${{ github.repository }}
+            org.label-schema.build-date=$ {{ github.run_started_at }}
+
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: Save Docker Image SHA
+        id: docker-image-sha
+        run: echo "IMAGE_SHA=$ {{ steps.build-push.outputs.digest }}" >> $GITHUB_OUTPUT
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+
+      - name: Deploy to Staging Environment
+        run: |
+          echo "Deploying image $ {{ steps.docker-image-sha.outputs.IMAGE_SHA }} to staging..."
+          # Add your deployment commands here based on your staging environment.
+          # Examples:
+          # - For a simple Docker host via SSH:
+          #   ssh $ {{ secrets.SSH_USER }}@$ {{ secrets.SSH_HOST_STAGING }} "docker pull $ {{ secrets.DOCKER_REGISTRY }}/$ {{ github.repository }}:$ {{ github.sha }} && docker stop $ {{ secrets.CONTAINER_NAME_STAGING }} && docker rm $ {{ secrets.CONTAINER_NAME_STAGING }} && docker run -d --name $ {{ secrets.CONTAINER_NAME_STAGING }} -p $ {{ secrets.HOST_PORT_STAGING }}:$ {{ secrets.CONTAINER_PORT_STAGING }} $ {{ secrets.DOCKER_REGISTRY }}/$ {{ github.repository }}:$ {{ github.sha }}"
+          echo "Deployment to staging complete." 
