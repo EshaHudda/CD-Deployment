@@ -1,11 +1,9 @@
-// server.js
-
 // Import the built-in 'http' module for creating a web server
 const http = require('http');
 
 // Define the hostname and port the server will listen on
 const hostname = '127.0.0.1'; // This is the loopback address (localhost)
-const port = 3003;
+const port = 3002;
 
 // Create the HTTP server
 const server = http.createServer((req, res) => {
