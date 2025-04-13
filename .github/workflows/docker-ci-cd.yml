@@ -33,10 +33,13 @@ jobs:
           org.label-schema.vcs-ref=${{ github.sha }}
           org.label-schema.vcs-url=${{ github.event.repository.html_url }}
 
-    - name: Run Tests (Simple Test - Adapt as needed)
-      run: |
-        docker run --rm -p 5000:3002 ${{ steps.build-image.outputs.digest }} node -e "require('http').get('http://localhost:3002', (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); }).on('error', (err) => process.exit(1));"
-
+          - name: Run Tests (Simple Test - Adapt as needed)
+          run: |
+            docker run -d --name test-app -p 5000:3002 ${{ steps.build-image.outputs.digest }}
+            sleep 5 # Give the server a few seconds to start
+            node -e "require('http').get('http://localhost:3002', (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); }).on('error', (err) => process.exit(1));"
+            docker stop test-app
+            docker rm test-app
   deploy:
     needs: build
     runs-on: ubuntu-latest
